@@ -881,6 +881,7 @@ class Parser
     raise ArgumentError, "you already have an argument named '#{name}'" if @specs.member? o.name
     raise ArgumentError, "long option name #{o.long.inspect} is already taken; please specify a (different) :long" if @long[o.long]
     raise ArgumentError, "short option name #{o.short.inspect} is already taken; please specify a (different) :short" if @short[o.short]
+    raise ArgumentError, "permitted values for option #{o.long.inspect} must be either nil or an array;" unless o.permitted.nil? or o.permitted.is_a? Array
     @long[o.long] = o.name
     @short[o.short] = o.name if o.short?
     @specs[o.name] = o
@@ -1067,6 +1068,10 @@ class Parser
         params << (opts.array_default? ? opts.default.clone : [opts.default])
       end
 
+      params[0].each do |p|
+        raise CommandlineError, "option '#{arg}' only accepts one of: #{opts.permitted.join(', ')}" unless opts.permitted.include? p
+      end unless opts.permitted.nil?
+
       vals["#{sym}_given".intern] = true # mark argument as specified on the commandline
 
       vals[sym] = opts.parse(params, negative_given)
@@ -1105,7 +1110,6 @@ class Parser
           # call this unless the cursor's at the beginning of a line.
 
     left = {}
-    
     @specs.each { |name, spec| left[name] = spec.educate }
 
     leftcol_width = left.values.map(&:length).max || 0
@@ -1128,7 +1132,7 @@ class Parser
 
       spec = @specs[opt]
       stream.printf "  %-#{leftcol_width}s    ", left[opt]
-      desc = spec.description_with_default
+      desc = spec.full_description
 
       stream.puts wrap(desc, :width => width - rightcol_start - 1, :prefix => rightcol_start)
     end
@@ -1323,7 +1327,7 @@ end
 
 class Option
 
-  attr_accessor :name, :short, :long, :default
+  attr_accessor :name, :short, :long, :default, :permitted
   attr_writer :multi_given
 
   def initialize
@@ -1333,6 +1337,7 @@ class Option
     @multi_given = false
     @hidden = false
     @default = nil
+    @permitted = nil
     @optshash = Hash.new()
   end
 
@@ -1377,9 +1382,16 @@ class Option
     (short? ? "-#{short}, " : "    ") + "--#{long}" + type_format + (flag? && default ? ", --no-#{long}" : "")
   end
 
-  ## Format the educate-line description including the default-value(s)
-  def description_with_default
-    return desc unless default
+  ## Format the educate-line description including the default and permitted value(s)
+  def full_description
+    desc_str = desc
+    desc_str += default_description_str(desc) if default
+    desc_str += permitted_description_str(desc) if permitted
+    desc_str
+  end
+
+  ## Generate the default value string for the educate line
+  private def default_description_str str
     default_s = case default
                 when $stdout   then '<stdout>'
                 when $stdin    then '<stdin>'
@@ -1389,8 +1401,23 @@ class Option
                 else
                   default.to_s
                 end
-    defword = desc.end_with?('.') ? 'Default' : 'default'
-    return "#{desc} (#{defword}: #{default_s})"
+    defword = str.end_with?('.') ? 'Default' : 'default'
+    " (#{defword}: #{default_s})"
+  end
+
+  ## Generate the permitted values string for the educate line
+  private def permitted_description_str str
+    permitted_s = permitted.map do |p|
+      case p
+      when $stdout   then '<stdout>'
+      when $stdin    then '<stdin>'
+      when $stderr   then '<stderr>'
+      else
+        p.to_s
+      end
+    end.join(', ')
+    permword = str.end_with?('.') ? 'Permitted' : 'permitted'
+    " (#{permword}: #{permitted_s})"
   end
 
   ## Provide a way to register symbol aliases to the Parser
@@ -1429,8 +1456,12 @@ class Option
     ## fill in :default for flags
     defvalue = opts[:default] || opt_inst.default
 
+    ## fill in permitted values
+    permitted = opts[:permitted] || nil
+
     ## autobox :default for :multi (multi-occurrence) arguments
     defvalue = [defvalue] if defvalue && multi_given && !defvalue.kind_of?(Array)
+    opt_inst.permitted = permitted
     opt_inst.default = defvalue
     opt_inst.name = name
     opt_inst.opts = opts
@@ -1765,6 +1796,7 @@ end # module
 ###############
 
 OPTS = Optimist::options do
+  version VERSION
   banner <<~EOF
     #{PRGNAME}  version #{VERSION}
     Copyright (C) #{COPYRIGHT} by #{AUTHOR}
@@ -1785,10 +1817,11 @@ OPTS = Optimist::options do
     Options:
   EOF
   opt :"dry-run", "Simulates a run without performing any changes"
-  opt :fsck, "Runs an fsck check on disks flaggd in the config before any backup is made on/from them"
+  opt :fsck, "Runs an fsck check on disks flaggd in the config before any backup is made on/from them", default: true
   opt :"fsck-only", "Specify which locations to run fsck on. Ignored if --fsck is also provided", type: :string, short: :none, multi: true
   opt :init, "Creates a skeleton config file in the current working directory"
   opt :verbose, "Enables verbose output. Twice will enable very-verbose output (good for logging)", multi: true
+  opt :version, "Print version and exit", short: :none
   opt :yaml, "Specify a yaml file to load", type: :string, short: :none
   opt :yes, "Assume 'yes' to all questions for headless execution"
 end

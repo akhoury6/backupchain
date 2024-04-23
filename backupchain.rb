@@ -72,6 +72,7 @@ require_relative File.join(LIBDIR, 'optimist.rb')
 ###############
 
 OPTS = Optimist::options do
+  version VERSION
   banner <<~EOF
     #{PRGNAME}  version #{VERSION}
     Copyright (C) #{COPYRIGHT} by #{AUTHOR}
@@ -92,10 +93,11 @@ OPTS = Optimist::options do
     Options:
   EOF
   opt :"dry-run", "Simulates a run without performing any changes"
-  opt :fsck, "Runs an fsck check on disks flaggd in the config before any backup is made on/from them"
+  opt :fsck, "Runs an fsck check on disks flaggd in the config before any backup is made on/from them", default: true
   opt :"fsck-only", "Specify which locations to run fsck on. Ignored if --fsck is also provided", type: :string, short: :none, multi: true
   opt :init, "Creates a skeleton config file in the current working directory"
   opt :verbose, "Enables verbose output. Twice will enable very-verbose output (good for logging)", multi: true
+  opt :version, "Print version and exit", short: :none
   opt :yaml, "Specify a yaml file to load", type: :string, short: :none
   opt :yes, "Assume 'yes' to all questions for headless execution"
 end
