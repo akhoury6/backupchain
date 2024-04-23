@@ -1,0 +1,50 @@
+---
+locations:                          # (Required) Define the locations that the tool should back up to and/or from
+  Home Folder:
+    root: /home/myuser
+    highlight_color: green
+  Storage Drive:
+    root: /mnt/storage
+    disk: true                      # (Optional) Flag this target as a removable hard drive for more accurate availability detection. Can also automatically verify that the correct parition UUID is mounted (syntax below)
+    highlight_color: yellow
+  Backup Server:                    # (Required) Name of the target
+    root: /mnt/backup               # (Required) Path of the backup root
+    ssh:                            # (Optional) If the SSH block is defined, the target is treated as a remote server
+      credentials:                  #    SSH Credentials. You may skip these if they are defined in ~/.ssh/config
+        user: example
+        keyfile: ~/.ssh/id_rsa
+      local:                        # The settings for reaching this server on the local network. If both
+        addr: 192.168.1.10          #     local and remote are defined, the local connection will be attempted
+        port: 22                    #     first and the remote will be used as a fallback. At least one
+      remote:                       #     of these two must be defined if using SSH.
+        addr: my.public.dns.com
+        port: 22
+    disk:                           # (Optional) Designate a drive as removable and specify a partition to mount at the given root. This may also simply be set to 'true' or 'false' to simply check that a disk is present
+      automount: false              #     Automatically mount the partition if it is found. Set to false to verify only. Defaults fo 'false'
+      uuid: 6efbf597-9004-47ee-9062-50e733c72d2a  # Volume UUID that is expected at the mountpoint. The Volume UUID can be found by running `sudo blkid /dev/<device>` on linux or `diskutil info /dev/<device>` on MacOS. Setting this value will ensure that the expected volume is the one mounted, and also be used for automounting
+      can_fsck: false               #     If this is set to true, then when the script is run with the `--fsck` command line parameter, an fsck check will be performed before any backups take place
+    highlight_color: magenta        # (Optional) Highlight this target in the command output. For color options, see: https://github.com/fazibear/colorize/blob/8dcce6dac27855e1ac23ad5383ba56e25447e783/lib/colorize/class_methods.rb#L5
+execution_tree:                     # (Required) Describe the execution chain, defining how the backups are to occur. This is a recursive tree. Each target/failover node is identical to its parent
+  - location: Home folder           # (Required) Set the location for the node
+    execution_group: 0              #    (Optional) Tree roots can be executed in parallel by grouping them together into 'execution groups'. Lower numbered groups will be executed first. Any roots that don't have one specified will be run sequentially at the end. Only valid on the root node.
+    outgoing:                       #    (Required) These are parameters to be applied to the outgoing sync (where this location is the source)
+      exec_mode: fullsync           #        Options are "fullsync" (default) and "shiftsync". Fullsync will keep all nested targets identical. Shiftsync will perform the backups in reverse, keeping different "versions" of the data
+      parallelize: true             #        Run all outgoing backups from this node in parallel (multi-threaded). Access to drives is thread-safe and controlled with locks, but a race condition can still be created if the backup order is sensitive.
+      source_folder: /              #        Subfolder relative to the Location root defined above
+      rsync_options_merge: ~        #        Additional options to be used with rsync for outgoing transfers
+      targets:                      #    (Required) 'targets' is the list of the primary backup targets. These is either an array of strings (if no options need to be set)
+        - location: Storage Drive   #        or of objects as shown here. This is useful to chain backups from one location to the next
+          incoming:                 #    These are parameters for the incoming transfer from the parent location
+            source_folder_override: /   # This does exactly what it says. Useful when trying to back up different folders of the same drive to different locations in parallel
+            dest_folder: /home      #        Sets the destination folder for the backup coming from the parent, relative to the location root
+            rsync_options_merge: ~              #  The options specified here will be merged with the defaults set previously
+            rsync_options_override: ~           #  The options specified here will override the defaults set previously. If this is set, both the defaults and the merged options (specified above) are ignored
+          outgoing:
+            targets:
+              - Backup Server       #        This could also be another nested object like it's parent, but in this case we don't need to set any options
+      failovers:                    #    (Optional) Failover servers are backed up to in case the primary target is not available. The format is identical to the targets
+        - location: Backup Server
+          dest_folder: /home
+rsync_defaults:                     # (Optional) Define the default command-line options to be passed to rsync, before any per-target settings are specified (shown above)
+  - -avhz                           #     Defaults to having no options set
+  - delete-before                   #     Adding in --dry-run here for testing is not necessary if passing in the command-line paramter -d (--dry-run) when running

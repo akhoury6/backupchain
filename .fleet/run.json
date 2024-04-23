@@ -1,0 +1,22 @@
+{
+  "configurations": [
+    {
+      "type": "command",
+      "name": "Run Test Backup",
+      "program": "$PROJECT_DIR$/backupchain.rb",
+      "args": [
+        "--yaml=$PROJECT_DIR$/backupchain_test.yaml"
+      ],
+    },
+    {
+      "type": "command",
+      "name": "Compile Portable Script",
+      "program": "$PROJECT_DIR$/tools/compile.rb"
+    },
+    {
+      "type": "command",
+      "name": "Update Cached YAML",
+      "program": "$PROJECT_DIR$/tools/update_cached_yaml.rb"
+    }
+  ]
+}

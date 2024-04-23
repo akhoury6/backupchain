@@ -1,0 +1,159 @@
+---
+"$id": https://akhoury6/backchain.schema.json
+// "$schema": https://json-schema.org/draft/2020-12/schema
+title: Backchain Configuration
+type: object
+required: [locations, execution_tree]
+additionalProperties: false
+properties:
+  rsync_defaults:
+    "$ref": "#/$defs/rsyncopts"
+  locations:
+    description: List of backup targets to select from and their settings
+    type: object
+    patternProperties:
+      ".*":
+        descripton: Backup Target Location Definition
+        type: object
+        required: [root]
+        additionalProperties: false
+        properties:
+          root:
+            type: string
+            pattern: ^((?:[^/]*/)*)(.*)$
+          disk:
+            oneOf:
+              - type: boolean
+              - type: object
+                oneOf:
+                  - required: [automount, uuid]
+                    additionalProperties: false
+                    properties:
+                      automount:
+                        type: boolean
+                        const: true
+                      uuid:
+                        type: string
+                        format: uuid
+                      can_fsck:
+                        type: boolean
+                  - additionalProperties: false
+                    properties:
+                      automount:
+                        oneOf:
+                          - type: boolean
+                            const: false
+                          - type: string
+                            const: fstab
+                      uuid:
+                        type: string
+                        format: uuid
+                      can_fsck:
+                        type: boolean
+          highlight_color:
+            type: string
+            enum: [black, red, green, yellow, blue, magenta, cyan, white, default, light_black, light_red, light_green, light_yellow, light_blue, light_magenta, light_cyan, light_white, gray, grey]
+          ssh:
+            type: object
+            additionalProperties: false
+            anyOf:
+              - required: [local]
+              - required: [remote]
+            properties:
+              credentials:
+                type: object
+                additionalProperties: false
+                anyOf:
+                  - required: [user]
+                  - required: [keyfile]
+                properties:
+                  user:
+                    type: string
+                  keyfile:
+                    type: string
+                    pattern: ^((?:[^/]*/)*)(.*)$
+            patternProperties:
+              "^(local|remote)$":
+                type: object
+                required: [addr]
+                additionalProperties: false
+                properties:
+                  addr:
+                    type: string
+                    format:
+                      oneOf:
+                        - ipv4
+                        - ipv6
+                        - hostname
+                        - idn-hostname
+                  port:
+                    type: integer
+                    minimum: 0
+                    maximum: 65535
+  execution_tree:
+    description: The configuration of how to chain backup targets together
+    type: array
+    items:
+      "$ref": "#/$defs/execution_node"
+"$defs":
+  rsyncopts:
+    description: The CLI options to pass to rsync
+    type: array
+    items:
+      type: string
+      pattern: "^[^-]+"
+  execution_node:
+    type: object
+    additionalProperties: false
+    properties:
+      location:
+        type: string
+      execution_group:
+        type: integer
+        minimum: 0
+        maximum: 255
+      incoming:
+        type: object
+        additionalProperties: false
+        properties:
+          source_folder_override:
+            oneOf:
+              - type: string
+          dest_folder:
+            type: string
+            pattern: ^((?:[^/]*/)*)(.*)$
+          rsync_options_merge:
+            anyOf:
+              - "$ref": "#/$defs/rsyncopts"
+              - type: null
+          rsync_options_override:
+            anyOf:
+              - "$ref": "#/$defs/rsyncopts"
+              - type: null
+      outgoing:
+        type: object
+        additionalProperties: false
+        properties:
+          exec_mode:
+            type: string
+            enum: [fullsync, shiftsync]
+          source_folder:
+            type: string
+          parallelize:
+            type: boolean
+          rsync_options_merge:
+            anyOf:
+              - "$ref": "#/$defs/rsyncopts"
+              - type: null
+          targets:
+            type: array
+            items:
+              anyOf:
+                - type: string
+                - "$ref": "#/$defs/execution_node"
+          failovers:
+            type: array
+            items:
+              anyOf:
+                - type: string
+                - "$ref": "#/$defs/execution_node"
