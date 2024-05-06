@@ -90,6 +90,16 @@ properties:
                     type: integer
                     minimum: 0
                     maximum: 65535
+          max_threads:
+            type: object
+            additionalProperties: false
+            properties:
+              read:
+                type: integer
+                minimum: 1
+              write:
+                type: integer
+                minimum: 1
   execution_tree:
     description: The configuration of how to chain backup targets together
     type: array

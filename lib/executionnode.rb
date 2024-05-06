@@ -40,7 +40,7 @@ class ExecutionNode
       next unless target.host.available?
       target.backup(exec_mode: 'shiftsync', fsck_hosts: fsck_hosts, dryrun: dryrun) if exec_mode == 'shiftsync'
 
-      target.host.lock
+      target.host.add_writer
       next unless target.host.available? # Check this again in case something happened while waiting for the lock or during shiftsync
       System.log.info backup_start_message_with_target(target, color: highlight && target.host.highlight_color)
       perform_fsck.call(target, highlight: highlight) if fsck_hosts.include?(target.host.name.downcase)
@@ -48,14 +48,14 @@ class ExecutionNode
       rsync_string = build_rsync_string_with_target(target, executable: executor.rsync_executable_path, dryrun: dryrun)
       prefix_string = @host.name[0..2].colorize(@host.highlight_color) + '/' + target.host.name[0..2].colorize(target.host.highlight_color) + ' - '
       executor.run_command!(rsync_string, prefix: prefix_string, color: highlight && target.host.highlight_color)
-      target.host.unlock
+      target.host.del_writer
 
       backed_up_to_a_target = true
       target.backup(exec_mode: 'fullsync', fsck_hosts: fsck_hosts, dryrun: dryrun) if exec_mode == 'fullsync'
     }
 
     System.log.info "Began backup process for #{@host.name.colorize(@host.highlight_color)} with planned targets #{planned_targets.map{|n| n.host.name.colorize(n.host.highlight_color)}.join(', ')}#{planned_failovers.empty? ? '' : ' and failovers ' + planned_failovers.map{|n| n.host.name.colorize(n.host.highlight_color)}.join(', ')}".colorize(mode: :bold)
-    self.host.lock
+    self.host.add_reader
     perform_fsck.call(self, highlight: @outgoing[:parallelize]) if fsck_hosts.include?(@host.name.downcase)
     if @outgoing[:parallelize]
       planned_targets.select{|target| target.host.available?(force_check: true)}.map{|target| Thread.new{ perform_backup.call(target, highlight: true) }}.each(&:join)
@@ -67,7 +67,7 @@ class ExecutionNode
       System.log.warn "As a precaution parallel execution will be disabled for these operations." if @outgoing[:parallelize]
       planned_failovers.select{|target| target.host.available?(force_check: true)}.each(&perform_backup)
     end
-    self.host.unlock
+    self.host.del_reader
     backed_up_to_a_target
   end
 

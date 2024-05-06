@@ -2,7 +2,7 @@
 # Location Classes
 ###############
 class Location
-  def self.create name: nil, root: nil, ssh: nil, disk: false, highlight_color: nil
+  def self.create name: nil, root: nil, ssh: nil, disk: false, highlight_color: nil, max_threads: nil
     params = binding.local_variables.select{ |var| var != :params }.map{ |var| [var.to_sym, binding.local_variable_get(var)] }.to_h
     if ssh.nil? && !disk
       return LocalFolder.new *params
@@ -15,7 +15,7 @@ class Location
     end
   end
 
-  def initialize name: nil, root: nil, ssh: nil, disk: false, highlight_color: nil
+  def initialize name: nil, root: nil, ssh: nil, disk: false, highlight_color: nil, max_threads: nil
     binding.local_variables.each do |var|
       self.instance_variable_set("@#{var}", binding.local_variable_get(var.to_sym))
       self.class.instance_eval{ attr_reader var.to_sym }
@@ -23,7 +23,55 @@ class Location
     @root = File.expand_path(@root)
     @highlight_color = @highlight_color.nil? ? :default : @highlight_color.to_sym
     @mutex = Mutex.new
+    @max_threads ||= {}
+    @max_threads [:read] ||= 1
+    @max_threads [:write] ||= 1
+    @readers = 0
+    @writers = 0
   end
+
+  attr_reader :max_threads
+
+  def add_reader
+    ready = false
+    loop do
+      @mutex.lock
+      if @readers < @max_threads[:read] && @writers == 0
+        @readers += 1
+        ready = true
+      end
+      @mutex.unlock
+      break if ready
+      sleep 1
+    end
+  end
+
+  def add_writer
+    ready = false
+    loop do
+      @mutex.lock
+      if @writers < @max_threads[:write] && @readers == 0
+        @writers += 1
+        ready = true
+      end
+      @mutex.unlock
+      break if ready
+      sleep 1
+    end
+  end
+
+  def del_reader
+    @mutex.lock
+    @readers -= 1 unless @readers == 0
+    @mutex.unlock
+  end
+
+  def del_writer
+    @mutex.lock
+    @writers -= 1 unless @writers == 0
+    @mutex.unlock
+  end
+
 
   def lock
     @mutex.lock
