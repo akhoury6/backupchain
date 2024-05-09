@@ -363,11 +363,12 @@ execution_tree:
 ### Drive/Parition Verification
 If you supply backupchain with the UUID of a parition you are expecting to hold the `root` of the location, it can verify that the path you have given is indeed on the disk you are expecting it to be on. This helps when working with external drives, and/or bad actors that may try mounting a different drive there to get your data.
 
-To get your partition UUID, run the following:
+If in MacOS, you'll need the UUID of the "Synthesized" partiton when using APFS, otherwise it's straightforward. To get your partition UUID, run the following:
 
 ```shell
-MacOS: diskutil info "/dev/disk#s#" | grep "Volume UUID"
-Linux: blkid "/dev/disk#s#"
+MacOS (by Device): diskutil info "/dev/disk#s#" | grep "Volume UUID" | rev | cut -d' ' -f1 | rev
+MacOS (by Volume): df /Volumes/XXXXXXXX | tail -n1 | cut -d' ' -f1 | xargs -I {} diskutil info {} | grep "Volume UUID" | rev | cut -d' ' -f1 | rev
+Linux (by Device): blkid "/dev/disk#s#"
 ```
 
 And here it is in a config:

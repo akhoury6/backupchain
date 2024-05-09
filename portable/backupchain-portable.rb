@@ -65,7 +65,7 @@ LIBDIR = File.join(MAINDIR, 'lib')
 # Location Classes
 ###############
 class Location
-  def self.create name: nil, root: nil, ssh: nil, disk: false, highlight_color: nil
+  def self.create name: nil, root: nil, ssh: nil, disk: false, highlight_color: nil, max_threads: nil
     params = binding.local_variables.select{ |var| var != :params }.map{ |var| [var.to_sym, binding.local_variable_get(var)] }.to_h
     if ssh.nil? && !disk
       return LocalFolder.new *params
@@ -78,7 +78,7 @@ class Location
     end
   end
 
-  def initialize name: nil, root: nil, ssh: nil, disk: false, highlight_color: nil
+  def initialize name: nil, root: nil, ssh: nil, disk: false, highlight_color: nil, max_threads: nil
     binding.local_variables.each do |var|
       self.instance_variable_set("@#{var}", binding.local_variable_get(var.to_sym))
       self.class.instance_eval{ attr_reader var.to_sym }
@@ -86,7 +86,55 @@ class Location
     @root = File.expand_path(@root)
     @highlight_color = @highlight_color.nil? ? :default : @highlight_color.to_sym
     @mutex = Mutex.new
+    @max_threads ||= {}
+    @max_threads [:read] ||= 1
+    @max_threads [:write] ||= 1
+    @readers = 0
+    @writers = 0
   end
+
+  attr_reader :max_threads
+
+  def add_reader
+    ready = false
+    loop do
+      @mutex.lock
+      if @readers < @max_threads[:read] && @writers == 0
+        @readers += 1
+        ready = true
+      end
+      @mutex.unlock
+      break if ready
+      sleep 1
+    end
+  end
+
+  def add_writer
+    ready = false
+    loop do
+      @mutex.lock
+      if @writers < @max_threads[:write] && @readers == 0
+        @writers += 1
+        ready = true
+      end
+      @mutex.unlock
+      break if ready
+      sleep 1
+    end
+  end
+
+  def del_reader
+    @mutex.lock
+    @readers -= 1 unless @readers == 0
+    @mutex.unlock
+  end
+
+  def del_writer
+    @mutex.lock
+    @writers -= 1 unless @writers == 0
+    @mutex.unlock
+  end
+
 
   def lock
     @mutex.lock
@@ -484,7 +532,7 @@ class ExecutionNode
       next unless target.host.available?
       target.backup(exec_mode: 'shiftsync', fsck_hosts: fsck_hosts, dryrun: dryrun) if exec_mode == 'shiftsync'
 
-      target.host.lock
+      target.host.add_writer
       next unless target.host.available? # Check this again in case something happened while waiting for the lock or during shiftsync
       System.log.info backup_start_message_with_target(target, color: highlight && target.host.highlight_color)
       perform_fsck.call(target, highlight: highlight) if fsck_hosts.include?(target.host.name.downcase)
@@ -492,14 +540,14 @@ class ExecutionNode
       rsync_string = build_rsync_string_with_target(target, executable: executor.rsync_executable_path, dryrun: dryrun)
       prefix_string = @host.name[0..2].colorize(@host.highlight_color) + '/' + target.host.name[0..2].colorize(target.host.highlight_color) + ' - '
       executor.run_command!(rsync_string, prefix: prefix_string, color: highlight && target.host.highlight_color)
-      target.host.unlock
+      target.host.del_writer
 
       backed_up_to_a_target = true
       target.backup(exec_mode: 'fullsync', fsck_hosts: fsck_hosts, dryrun: dryrun) if exec_mode == 'fullsync'
     }
 
     System.log.info "Began backup process for #{@host.name.colorize(@host.highlight_color)} with planned targets #{planned_targets.map{|n| n.host.name.colorize(n.host.highlight_color)}.join(', ')}#{planned_failovers.empty? ? '' : ' and failovers ' + planned_failovers.map{|n| n.host.name.colorize(n.host.highlight_color)}.join(', ')}".colorize(mode: :bold)
-    self.host.lock
+    self.host.add_reader
     perform_fsck.call(self, highlight: @outgoing[:parallelize]) if fsck_hosts.include?(@host.name.downcase)
     if @outgoing[:parallelize]
       planned_targets.select{|target| target.host.available?(force_check: true)}.map{|target| Thread.new{ perform_backup.call(target, highlight: true) }}.each(&:join)
@@ -511,7 +559,7 @@ class ExecutionNode
       System.log.warn "As a precaution parallel execution will be disabled for these operations." if @outgoing[:parallelize]
       planned_failovers.select{|target| target.host.available?(force_check: true)}.each(&perform_backup)
     end
-    self.host.unlock
+    self.host.del_reader
     backed_up_to_a_target
   end
 
@@ -661,7 +709,7 @@ class Config < Hash
       System.log.debug "Loaded config schema file from '#{schemafile}'"
     rescue Errno::ENOENT
       System.debug "Could not load schemafile at the following location. Failing over to the hardcoded base64 schema: '#{schemafile}'"
-      schema = YAML.safe_load "eJzVV0tv4zYQvvtXDNQcklSK0rTOQZcCu70UCNA97C2wDVoaSVxTpEpSm3XR\nH19SD8uSKdkJdrFbAYZJznDmmweHwyAIFt4VTbwIcq1LFYUh2eWikvvHcEvi\nXZwTyu9UnGNB7j4pwRdhCN5Vs3C0yZKClk3ILEwkSXX4cP9wH/zyEDaEhaaa\nYQTvOrnwXvCUZpUkmhrJel8aqth+wlgvJP5dUYlJBM9MxDWD8gG/YFzZ8UZL\nxNWCJAm1U8I+SFGi1BRVBClhChdlv7IAkGrP402CKamYrlfA2CExNUZ4P4VX\nhqLCmkmUWnmGflDbMCeoYklLuxLBE1UaRArWRVUJmsgMtQItQCEz8CGVogDC\nE9A5UmlWtaY8U7WkgZ12oSRao+QfBoBrgHe3XjfuEVgA7xrFH2vF8NRChT8w\npbz2yGHXiTb7HXlXCqFXB8KcQzue8gRnLdLIOZ53mpWWxvIBobU3gvX19e/R\n8zpc3YY3tzfXd7c3V0eMCVW7oUTB8a90uAQQtIq2QjAkfII6csCsxGbfkY9I\npUUhKq59qCqarBz8l7lu4AWnGwcSO7VTDDBrev/FJot1BFpWbihQm3VOiyOS\nx18qZEGMFitqgikmfJOqePd2e4Lv4+bJNOlxXRYJ+7XRmIY8FHnG7ccSlSbb\n/2mAc5rlzPz0JhZMyAsrCfKqMOdzy0w59M2JTXzIzMXAfdgjY+LFhy2r0IeC\nZMg18SHeE0N8yak2q+1t4EOjuJXSTGpZzbCV2Ew6ud0WK70ZH3S0ZtSamnGr\nL5NkXwPcH1cQpXKXtY6CdWnqE753lcnRlcrGZWzAIbEQGocs00cpNpuM8dRA\nOQ39bAF+zXF22nWCvFIoXRV6wLTDfUoZnvLNlwsr253bZ05Qq+9Ney++MGc6\nie7z1td17P9t4ntz5b0yXse3YpI4HP2agM4728p/o8PaUjVRhc5U8wBo+fm3\nefLjDDkXSnNSTNd2IyHhwQxbKeQE+MZyyjVmKJ0chWkAC1sV791k8qUhPy6X\nvy4Ny7CldvS6H3O0F0zfqNvGNxcvtttt2viTLtj85S28BjCRpvTVc1MIi76/\nHTfgPRguEvTM08Que4cG3vbmExDfP/0Jop7XfXhJVP1fbzuPxJFRh0PnrZ/X\nwepnb+Asiy9yt/PnTsBp1ndPjT7mDjy97kyKqhzzjnPCkQeH2D8sl+0iNT41\nnNlY2uj0v/1ZoMxbMsZNKliCciM+o5Q0GdXB2bb+5JSbyOtW3td9bzRPxDaH\nNgWabB4qmLhX55+RLpt4xdikYrePvoVuUelMfMvg25TdFGJsy7l2LjUQrRk+\nqJym2g5XUyl1keSSSMIYMvqPE8lpN/rdUqGtoS6UfeXqvkEFm0V29jXhgD6u\nxT1zSiizWfpDwvwPa8DTag==\n".decompress ##REPLACE#SCHEMAFILE##
+      schema = YAML.safe_load "eJzVV0tv2zgQvvtXEGoOSVaK0nSTgy4LtHtZIMD20FtgG7Q0klhTpJYcNfVi\nf/ySeliWTMlO2qK7AgyTnOHMNw8OOUEQLLwLlngRyRFLHYUh3eayUruHcEPj\nbZxTJm50nENBbz5rKRZhSLyLZuFgkyUFLZtUWZgommJ4d3t3G7y9CxvCAhly\niMj7Ti75IEXKskpRZEYy7kpDlZvPEONCwV8VU5BE5InLuGbQPoGvEFd2vEYF\nsFzQJGF2SvlHJUtQyEBHJKVcw6LsVxaEKL0T8TqBlFYc6xVi7FCQGiO8N+GF\noeiwZpIlas/Q92ob5gR0rFhpVyLyyDQSmRLroqokSFUGqAlKooEb+CRVsiBU\nJARzYMqsIjKR6VrSwE67UFJEUOLjAHAN8Oba68Y9AgvgfaP4U62YPLZQye+Q\nMlF7ZL/rSJv9DryrpMTlnjDn0I6nPMJZizRyDuedZo3KWD4gtPZGZHV5+Vv0\ntAqX1+HV9dXlzfXVxQFjwvR2KFEK+DMdLhEStIo2UnKgYoI6csCsxGbfgY9o\nhbKQlUCfVBVLlg7+81w38ILTjQOJndopBjJrev/FJosxIqgqNxRSm3VKiyOS\nh18qVUGNFitqgimmYp3qePt6e4Kf4+bJNOlxnRcJ+7XRmIY8FHnC7YcSNdLN\n/zTAOctybn64jiWX6sxKAqIqzPnccFMOfXNiE59k5mIQPtkB5/LZJxtegU8K\nmoFA6pN4Rw3xOWdoVtvbwCeN4lZKM6llNcNWYjPp5HZbrPRmvNfRmlFrasat\nvkzRXQ1wd1hBtM5d1joK1rmpT8XOVSZHVyofl7EBh4JCIgxZpo9SbDYZ45mB\nchz62QL8kuPstOsIeaVBuSr0gGkLu5RxOOabLxdWtju3T5ygVt+r9p59Yc68\nJLrPW13Wsf+nie/VhffCeB3eiknicPRLAjrvbCv/lQ5rS9VEFTpRzQPCyi+/\nzpMfZsi51ChoMV3bjYREBDNspVQT4BvLmUDIQDk5CvMALGxVvHWT6deG/HB/\n/+5+MSCsMVdAE/2dy9F0lK22qfybsnFv39sR6VmZIvtN0obdhePZ/ykHe9f2\nPYvtAXL5bB/+TUdz1BCYv7zV2yChytwC9dzALfqn/rgX6cEImYBnujS77O17\nGdumTED88PgHkfW8bklKquv/ettpJI7Dta8/3uppFSx/8QbOsvgid2dzKkWO\nU6PruvpAOvD0ujMlq3LMOw6240jsj8HdfXcImPGp4czG0kaZ//oOSZu2OoZ1\nKnkCai2/gFIsGWXsbIdzVPBM5LGV931br6ZbbnNoXYDJ5qGCiSfGfEftsklU\nnE8qdvvoR+iWFWbyRwbfpuy6kGNbTr1sUwPRmuETnbMU7XA5lVJnSS6popwD\nZ387kRw/zH9aKrQ11IWyr1zdN6hgs8hONlYO6ONa3DOnlHGbpf9JmP8C8dkT\nCQ==\n".decompress ##REPLACE#SCHEMAFILE##
     end
     begin
       JSON::Validator.validate!(schema, self)
@@ -1817,7 +1865,8 @@ OPTS = Optimist::options do
     Options:
   EOF
   opt :"dry-run", "Simulates a run without performing any changes"
-  opt :fsck, "Runs an fsck check on disks flaggd in the config before any backup is made on/from them", default: true
+  opt :edit, "Edit the backupchain config", short: :none
+  opt :fsck, "Runs an fsck check on disks flaggd in the config before any backup is made on/from them", default: true, short: :none
   opt :"fsck-only", "Specify which locations to run fsck on. Ignored if --fsck is also provided", type: :string, short: :none, multi: true
   opt :init, "Creates a skeleton config file in the current working directory"
   opt :verbose, "Enables verbose output. Twice will enable very-verbose output (good for logging)", multi: true
@@ -1901,6 +1950,18 @@ if OPTS[:init]
   File.write(cfgfile, Config.skeleton)
   System.log.info "Initialized config file ./#{cfgfile}"
   exit
+end
+
+# Edit
+if OPTS[:edit]
+  config_locs = OPTS[:yaml_given] ? [OPTS[:yaml]] : %W(./#{PRGNAME}.yaml ~/.#{PRGNAME}.yaml /etc/#{PRGNAME}.yaml )
+  config_locs.map{|c| File.expand_path(c)}.each do |conf|
+    if File.exist?(conf)
+      system("vi #{conf}")
+      break
+    end
+  end
+  exit 0
 end
 
 ###############

@@ -93,7 +93,8 @@ OPTS = Optimist::options do
     Options:
   EOF
   opt :"dry-run", "Simulates a run without performing any changes"
-  opt :fsck, "Runs an fsck check on disks flaggd in the config before any backup is made on/from them", default: true
+  opt :edit, "Edit the backupchain config", short: :none
+  opt :fsck, "Runs an fsck check on disks flaggd in the config before any backup is made on/from them", default: true, short: :none
   opt :"fsck-only", "Specify which locations to run fsck on. Ignored if --fsck is also provided", type: :string, short: :none, multi: true
   opt :init, "Creates a skeleton config file in the current working directory"
   opt :verbose, "Enables verbose output. Twice will enable very-verbose output (good for logging)", multi: true
@@ -127,6 +128,18 @@ if OPTS[:init]
   File.write(cfgfile, Config.skeleton)
   System.log.info "Initialized config file ./#{cfgfile}"
   exit
+end
+
+# Edit
+if OPTS[:edit]
+  config_locs = OPTS[:yaml_given] ? [OPTS[:yaml]] : %W(./#{PRGNAME}.yaml ~/.#{PRGNAME}.yaml /etc/#{PRGNAME}.yaml )
+  config_locs.map{|c| File.expand_path(c)}.each do |conf|
+    if File.exist?(conf)
+      system("vi #{conf}")
+      break
+    end
+  end
+  exit 0
 end
 
 ###############
