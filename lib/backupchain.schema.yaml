@@ -111,7 +111,7 @@ properties:
     type: array
     items:
       type: string
-      pattern: "^[^-]+"
+      pattern: "^[A-Za-z-]+"
   execution_node:
     type: object
     additionalProperties: false

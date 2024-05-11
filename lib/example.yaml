@@ -44,7 +44,8 @@ execution_tree:                     # (Required) Describe the execution chain, d
               - Backup Server       #        This could also be another nested object like it's parent, but in this case we don't need to set any options
       failovers:                    #    (Optional) Failover servers are backed up to in case the primary target is not available. The format is identical to the targets
         - location: Backup Server
-          dest_folder: /home
+          incoming:
+            dest_folder: /home
 rsync_defaults:                     # (Optional) Define the default command-line options to be passed to rsync, before any per-target settings are specified (shown above)
   - -avhz                           #     Defaults to having no options set
   - delete-before                   #     Adding in --dry-run here for testing is not necessary if passing in the command-line paramter -d (--dry-run) when running
