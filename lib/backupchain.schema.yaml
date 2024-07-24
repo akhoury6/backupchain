@@ -3,7 +3,7 @@
 // "$schema": https://json-schema.org/draft/2020-12/schema
 title: Backchain Configuration
 type: object
-required: [locations, execution_tree]
+required: [ locations, execution_tree ]
 additionalProperties: false
 properties:
   rsync_defaults:
@@ -15,7 +15,7 @@ properties:
       ".*":
         descripton: Backup Target Location Definition
         type: object
-        required: [root]
+        required: [ root ]
         additionalProperties: false
         properties:
           root:
@@ -26,7 +26,7 @@ properties:
               - type: boolean
               - type: object
                 oneOf:
-                  - required: [automount, uuid]
+                  - required: [ automount, uuid ]
                     additionalProperties: false
                     properties:
                       automount:
@@ -52,20 +52,20 @@ properties:
                         type: boolean
           highlight_color:
             type: string
-            enum: [black, red, green, yellow, blue, magenta, cyan, white, default, light_black, light_red, light_green, light_yellow, light_blue, light_magenta, light_cyan, light_white, gray, grey]
+            enum: [ black, red, green, yellow, blue, magenta, cyan, white, default, light_black, light_red, light_green, light_yellow, light_blue, light_magenta, light_cyan, light_white, gray, grey ]
           ssh:
             type: object
             additionalProperties: false
             anyOf:
-              - required: [local]
-              - required: [remote]
+              - required: [ local ]
+              - required: [ remote ]
             properties:
               credentials:
                 type: object
                 additionalProperties: false
                 anyOf:
-                  - required: [user]
-                  - required: [keyfile]
+                  - required: [ user ]
+                  - required: [ keyfile ]
                 properties:
                   user:
                     type: string
@@ -75,7 +75,7 @@ properties:
             patternProperties:
               "^(local|remote)$":
                 type: object
-                required: [addr]
+                required: [ addr ]
                 additionalProperties: false
                 properties:
                   addr:
@@ -146,7 +146,7 @@ properties:
         properties:
           exec_mode:
             type: string
-            enum: [fullsync, shiftsync]
+            enum: [ fullsync, shiftsync ]
           source_folder:
             type: string
           parallelize:

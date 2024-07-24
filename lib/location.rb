@@ -3,7 +3,7 @@
 ###############
 class Location
   def self.create name: nil, root: nil, ssh: nil, disk: false, highlight_color: nil, max_threads: nil
-    params = binding.local_variables.select{ |var| var != :params }.map{ |var| [var.to_sym, binding.local_variable_get(var)] }.to_h
+    params = binding.local_variables.select { |var| var != :params }.map { |var| [var.to_sym, binding.local_variable_get(var)] }.to_h
     if ssh.nil? && !disk
       return LocalFolder.new *params
     elsif ssh.nil? && disk
@@ -18,7 +18,7 @@ class Location
   def initialize name: nil, root: nil, ssh: nil, disk: false, highlight_color: nil, max_threads: nil
     binding.local_variables.each do |var|
       self.instance_variable_set("@#{var}", binding.local_variable_get(var.to_sym))
-      self.class.instance_eval{ attr_reader var.to_sym }
+      self.class.instance_eval { attr_reader var.to_sym }
     end
     @root = File.expand_path(@root)
     @highlight_color = @highlight_color.nil? ? :default : @highlight_color.to_sym
@@ -71,7 +71,6 @@ class Location
     @writers -= 1 unless @writers == 0
     @mutex.unlock
   end
-
 
   def lock
     @mutex.lock

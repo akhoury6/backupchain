@@ -1,9 +1,9 @@
 #!/usr/bin/env ruby
 ## This tool updates the cahced base64 strings in the code files
 
-%w(zlib base64).each{ |lib| require lib }
-String.instance_eval{define_method(:compress){Base64.encode64(Zlib::Deflate.deflate(self))}}
-String.instance_eval{define_method(:decompress){Zlib::Inflate.inflate(Base64.decode64(self))}}
+%w(zlib base64).each { |lib| require lib }
+String.instance_eval { define_method(:compress) { Base64.encode64(Zlib::Deflate.deflate(self)) } }
+String.instance_eval { define_method(:decompress) { Zlib::Inflate.inflate(Base64.decode64(self)) } }
 
 MAINDIR = File.expand_path(File.join(File.dirname(__FILE__), '..'))
 LIBDIR = File.expand_path(File.join(MAINDIR, 'lib'))
@@ -13,11 +13,11 @@ $files = {
   'SCHEMAFILE' => File.read(File.expand_path(File.join(MAINDIR, 'lib', 'backupchain.schema.yaml')))
 }
 
-Dir.glob("#{MAINDIR}/**/*.rb").each{ |filename|
+Dir.glob("#{MAINDIR}/**/*.rb").each { |filename|
   lines = File.readlines(filename)
   changes = false
   parsed_lines = []
-  lines.each{ |line|
+  lines.each { |line|
     if m = line.match(/##REPLACE#([^#]+)##/)
       parsed_lines.push line.sub(/\"[^\"]+\"/, $files[m[1]].compress.dump)
       changes = true

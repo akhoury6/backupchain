@@ -17,12 +17,12 @@
 ###############
 # Metadata
 ###############
-AUTHOR="Andrew Khoury"
-EMAIL="akhoury@live.com"
-PRGNAME="backupchain"
-COPYRIGHT="2024"
-VERSION="0.5.0"
-LICENSE="GPLv3 with Commons Clause"
+AUTHOR = "Andrew Khoury"
+EMAIL = "akhoury@live.com"
+PRGNAME = "backupchain"
+COPYRIGHT = "2024"
+VERSION = "0.5.0"
+LICENSE = "GPLv3 with Commons Clause"
 
 ###############
 # Safety First
@@ -46,7 +46,7 @@ gemfile do
   gem 'bigdecimal', '~> 3.1', require: false
 end
 
-%w(yaml open3 io/console zlib).each{ |lib| require lib }
+%w(yaml open3 io/console zlib).each { |lib| require lib }
 
 class File
   def self.full_expand_path path
@@ -54,9 +54,10 @@ class File
     self.symlink?(f) ? self.readlink(f) : f
   end
 end
-String.instance_eval{define_method(:compress){Base64.encode64(Zlib::Deflate.deflate(self))}}
-String.instance_eval{define_method(:decompress){Zlib::Inflate.inflate(Base64.decode64(self))}}
-String.instance_eval{define_method(:strip_color){self.gsub(/\e\[([;\d]+)?m/, '')}}
+
+String.instance_eval { define_method(:compress) { Base64.encode64(Zlib::Deflate.deflate(self)) } }
+String.instance_eval { define_method(:decompress) { Zlib::Inflate.inflate(Base64.decode64(self)) } }
+String.instance_eval { define_method(:strip_color) { self.gsub(/\e\[([;\d]+)?m/, '') } }
 
 # Project Imports
 MAINDIR = File.symlink?(__FILE__) ? File.expand_path(File.dirname(File.readlink(__FILE__))) : File.expand_path(File.dirname(__FILE__))
@@ -133,7 +134,7 @@ end
 # Edit
 if OPTS[:edit]
   config_locs = OPTS[:yaml_given] ? [OPTS[:yaml]] : %W(./#{PRGNAME}.yaml ~/.#{PRGNAME}.yaml /etc/#{PRGNAME}.yaml )
-  config_locs.map{|c| File.expand_path(c)}.each do |conf|
+  config_locs.map { |c| File.expand_path(c) }.each do |conf|
     if File.exist?(conf)
       system("vi #{conf}")
       break
@@ -159,27 +160,41 @@ end
 ###############
 if !config.validate!
   System.log.error "The provided config is invalid. Please fix the following errors before continuing."
-  config.validation_errors.each{|err| System.log.error err}
+  config.validation_errors.each { |err| System.log.error err }
   exit 1
 else
   System.log.debug "The config file was successfully validated against the schema"
 end
 
-unfounds = OPTS[:"fsck-only"].reject{|fsck_loc| config[:locations].map{|name, location_config| name}.include?(fsck_loc)}
-if unfounds.length > 0 then System.log.fatal "Locations specified for fsck but are not defined in the config: #{unfounds.join(' ')}. Exiting to prevent unexpected behavior."; exit 1 end
-unfounds = OPTS[:"fsck-only"].reject{|fsck_loc| config[:locations][fsck_loc].keys.include?(:disk) && config[:locations][fsck_loc][:disk][:can_fsck]}
-if unfounds.length > 0 then System.log.fatal "Locations specified for fsck but do not have fsck enabled in the config: #{unfounds.join(' ')}. Exiting to prevent unexpected behavior."; exit 1 end
+unfounds = OPTS[:"fsck-only"].reject { |fsck_loc| config[:locations].map { |name, location_config| name }.include?(fsck_loc) }
+if unfounds.length > 0 then
+  System.log.fatal "Locations specified for fsck but are not defined in the config: #{unfounds.join(' ')}. Exiting to prevent unexpected behavior."; exit 1
+end
+unfounds = OPTS[:"fsck-only"].reject { |fsck_loc| config[:locations][fsck_loc].keys.include?(:disk) && config[:locations][fsck_loc][:disk][:can_fsck] }
+if unfounds.length > 0 then
+  System.log.fatal "Locations specified for fsck but do not have fsck enabled in the config: #{unfounds.join(' ')}. Exiting to prevent unexpected behavior."; exit 1
+end
 
 ###############
 # Backup Process
 ###############
-if `which cowsay` != "" then System.log.info `cowsay -f stegosaurus 'Time for a backup!'`.lines.each_with_index.map{|line, index| if index <= 2 then line.colorize(:red) elsif index <= 6 then (line[0..4].colorize(:red) + line[5..-1].colorize(:cyan))  else line.colorize(:cyan) end}.join.colorize(mode: :bold)
-else System.log.info "eJyNlM1qwzAMgO95hVzUXrZDbbdsFEZLX2GX3hLqdGODUcJKobdUzz7JP/lx\n7CyyiS3L+ixZJnmx2b1sdq9vNeiIQJYX6zpvN+3h+FN/wffvDc7wcf683K8L\nOASbQEQkJJVA0i5tjV9KpB/Dg8rZDAUVU+QTLMNIgDHTFEkJkPue5wc/2NUR\njGjTsAbMJuoCkJqg4LiTJUt42lp04UiBAyQKXkp4N+23RMSSriAilVRkVHFE\nV0RiaK1Sl8y2KIHPfHdpg0u2J14na786HeDZXMDKBqpHGTTt7EGQdCKVsHUM\nz30MKWoyF4+Sw7NVVKVHt0JM1tUJlU9r56m0eRYnrwrQHiUFJ/4PqxeFiqno\nAucEiMx9FtFUoEmo5hUzzzX7R/gDbknaPA==\n".decompress
+if `which cowsay` != ""
+  System.log.info `cowsay -f stegosaurus 'Time for a backup!'`.lines.each_with_index.map { |line, index|
+    if index <= 2
+      line.colorize(:red)
+    elsif index <= 6
+      (line[0..4].colorize(:red) + line[5..-1].colorize(:cyan))
+    else
+      line.colorize(:cyan)
+    end
+  }.join.colorize(mode: :bold)
+else
+  System.log.info "eJyNlM1qwzAMgO95hVzUXrZDbbdsFEZLX2GX3hLqdGODUcJKobdUzz7JP/lx\n7CyyiS3L+ixZJnmx2b1sdq9vNeiIQJYX6zpvN+3h+FN/wffvDc7wcf683K8L\nOASbQEQkJJVA0i5tjV9KpB/Dg8rZDAUVU+QTLMNIgDHTFEkJkPue5wc/2NUR\njGjTsAbMJuoCkJqg4LiTJUt42lp04UiBAyQKXkp4N+23RMSSriAilVRkVHFE\nV0RiaK1Sl8y2KIHPfHdpg0u2J14na786HeDZXMDKBqpHGTTt7EGQdCKVsHUM\nz30MKWoyF4+Sw7NVVKVHt0JM1tUJlU9r56m0eRYnrwrQHiUFJ/4PqxeFiqno\nAucEiMx9FtFUoEmo5hUzzzX7R/gDbknaPA==\n".decompress
 end
 
 # Parse Locations
 locations = config[:locations].map do |name, location_config|
-  [name.to_sym, Location.create(**location_config.merge!({name: name.to_s}))]
+  [name.to_sym, Location.create(**location_config.merge!({ name: name.to_s }))]
 end.to_h
 
 # Parse Execution Tree
@@ -203,7 +218,7 @@ end
 unless OPTS[:yes]
   userkey = ''
   printf "\nConfirm? (y/n): "
-  userkey = STDIN.getch until ['y','n'].include? userkey.downcase
+  userkey = STDIN.getch until ['y', 'n'].include? userkey.downcase
   exit if userkey == 'n'
 end
 
@@ -211,16 +226,16 @@ end
 System.log.info 'Running Backups'.colorize(color: :cyan, mode: :bold)
 
 # Nodes in execution goups
-trees.chunk{|root| root.execution_group}.each do |chunk, roots|
+trees.chunk { |root| root.execution_group }.each do |chunk, roots|
   System.log.info "Execution group #{chunk} running.".colorize(mode: :bold)
-  roots.map{|root| Thread.new{ root.backup(dryrun: OPTS[:"dry-run"], fsck_hosts: OPTS[:fsck] ? locations.keys.map{|k| k.to_s} : OPTS[:"fsck-only"]) }}.each(&:join)
+  roots.map { |root| Thread.new { root.backup(dryrun: OPTS[:"dry-run"], fsck_hosts: OPTS[:fsck] ? locations.keys.map { |k| k.to_s } : OPTS[:"fsck-only"]) } }.each(&:join)
 end
 
 # Nodes not in execution groups
-sequential = trees.select{|root| root.execution_group.nil?}
+sequential = trees.select { |root| root.execution_group.nil? }
 System.log.info "Sequential backups running".colorize(mode: :bold) if sequential.count > 0
 sequential.each do |root|
-  root.backup(dryrun: OPTS[:"dry-run"], fsck_hosts: OPTS[:fsck] ? locations.keys.map{|k| k.to_s.downcase} : OPTS[:"fsck-only"].map{|h| h.downcase})
+  root.backup(dryrun: OPTS[:"dry-run"], fsck_hosts: OPTS[:fsck] ? locations.keys.map { |k| k.to_s.downcase } : OPTS[:"fsck-only"].map { |h| h.downcase })
 end
 
 # Done

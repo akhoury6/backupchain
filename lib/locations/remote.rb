@@ -34,7 +34,7 @@ class RemoteHost < Location
   private
 
   def host_available?
-    [:local, :remote].select{ |loc| @ssh.keys.include?(loc) }.each do |loc|
+    [:local, :remote].select { |loc| @ssh.keys.include?(loc) }.each do |loc|
       ssh_config = find_sshconfig_host_entry @ssh[loc][:addr], also_search_hostname: true
       ssh_addr = ssh_config.empty? ? @ssh[loc][:addr] : ssh_config['Hostname']
       ssh_port = @ssh[loc].keys.include?(:port) ? @ssh[loc][:port] : (ssh_config['Port'] || 22)
@@ -55,42 +55,47 @@ class RemoteHost < Location
 
   def find_sshconfig_host_entry host, also_search_hostname: false
     entries = get_sshconfig_host_entries
-    entries.select{|e| e["Host"].include?(host) || (also_search_hostname && e["Hostname"] == host)}.first || {}
+    entries.select { |e| e["Host"].include?(host) || (also_search_hostname && e["Hostname"] == host) }.first || {}
   end
 
   def get_sshconfig_host_entries filename: nil
-    #return @_all_ssh_host_entries if defined?(@_all_ssh_host_entries)
     filename ||= "~/.ssh/config"
     return [] unless File.exist?(File.expand_path(filename))
     ssh_config = File.read(File.expand_path(filename))
     entries = []
     buffer = []
-    ssh_config.lines.map{|l| l.strip}.select{|l| !l.start_with?('#') && !l.chomp.empty?}.map{|l| l.strip}.each do |line|
+    ssh_config.lines.map { |l| l.strip }.select { |l| !l.start_with?('#') && !l.chomp.empty? }.map { |l| l.strip }.each do |line|
       if m = line.match(/^Include (.*)$/)
         entries.push buffer; buffer = Array.new
-        entries.concat Dir.glob(File.expand_path(m[1])).map{|included| get_sshconfig_host_entries(filename: included)}.flatten(1)
+        entries.concat Dir.glob(File.expand_path(m[1])).map { |included| get_sshconfig_host_entries(filename: included) }.flatten(1)
         next
       end
-      if /^Host /.match(line) then entries.push buffer; buffer = Array.new end
+      if /^Host /.match(line)
+        entries.push buffer; buffer = Array.new
+      end
       buffer.push line.split(' ', 2)
-      if /^Host /.match(line) then buffer.last[1] = buffer.last[1].split(' ') end
+      if /^Host /.match(line)
+        buffer.last[1] = buffer.last[1].split(' ')
+      end
     end
     entries.push(buffer)
     entries.reject!(&:empty?)
-    entries.map{|e| e.to_h}
+    entries.map { |e| e.to_h }
   end
 end
 
 class RemoteFolder < RemoteHost
   include FolderModule
-  def initialize *params
+
+  def initialize * params
     super **params.to_h
   end
 end
 
 class RemoteRemovableDisk < RemoteHost
   include RemovableDiskModule
-  def initialize *params
+
+  def initialize * params
     super **params.to_h
   end
 end

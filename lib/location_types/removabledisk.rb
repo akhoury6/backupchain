@@ -9,7 +9,7 @@ module RemovableDiskModule
         @_root_available = (device_path_df == device_path_blkid)
       elsif operating_system == :darwin
         device_path_df = diskinfo.chomp.split(' ').first
-        device_info = run_command!("diskutil info #{device_path_df}", capture_output: true, silent: true).lines.map{|l| l.chomp}.reject(&:empty?).map{|l| l.split(':').map{|h| h.strip}}.reject{|arr| arr.length != 2}.to_h
+        device_info = run_command!("diskutil info #{device_path_df}", capture_output: true, silent: true).lines.map { |l| l.chomp }.reject(&:empty?).map { |l| l.split(':').map { |h| h.strip } }.reject { |arr| arr.length != 2 }.to_h
         @_root_available = device_info.keys.include?('Volume UUID') && device_info['Volume UUID'] == @disk[:uuid].upcase
       end
     end
@@ -17,7 +17,7 @@ module RemovableDiskModule
   end
 
   private def root_status_message
-    return @root.colorize(@highlight_color) + ' is in an ' + 'unknown'.colorize(:gray) + ' state.' if !defined?(@_root_available)
+    return @root.colorize(@highlight_color) + ' is in an ' + 'unknown'.colorize(:gray) + ' state.' unless defined?(@_root_available)
     return @root.colorize(@highlight_color) + ' is ' + 'present'.colorize(@highlight_color) if @_root_available
     return @root.colorize(@highlight_color) + ' is ' + 'missing'.colorize(:red)
   end
@@ -34,14 +34,14 @@ module RemovableDiskModule
       # First ensure the device is connected and get its details
       blkid_info = run_command!("sudo blkid --match-token UUID=#{@disk[:uuid].downcase}", capture_output: true, silent: true)
       return false if blkid_info.empty?
-      blkid_info = ("DEVICE=" + blkid_info.sub(':','')).gsub('"', '').split(' ').map{|e| e.split('=')}.to_h
+      blkid_info = ("DEVICE=" + blkid_info.sub(':', '')).gsub('"', '').split(' ').map { |e| e.split('=') }.to_h
       # Mount the disk
       run_command!('sudo mount "' + blkid_info['DEVICE'] + '" --target "' + @root + '"')
     elsif operating_system == :darwin
       # First ensure the device is connected and get its details
       all_disk_info = run_command!("diskutil info -all", capture_output: true, silent: true)
-      all_disk_info = all_disk_info.split('**********').map{|drive| drive.lines.map{|l| l.strip}.reject(&:empty?).map{|l| l.split(':').map{|h| h.strip}}.reject{|arr| arr.length != 2}.to_h }.reject(&:empty?)
-      return false if ! diskinfo = all_disk_info.select{|disk| disk.keys.include?('Volume UUID') && disk['Volume UUID'] == @disk[:uuid].upcase}[0]
+      all_disk_info = all_disk_info.split('**********').map { |drive| drive.lines.map { |l| l.strip }.reject(&:empty?).map { |l| l.split(':').map { |h| h.strip } }.reject { |arr| arr.length != 2 }.to_h }.reject(&:empty?)
+      return false if ! diskinfo = all_disk_info.select { |disk| disk.keys.include?('Volume UUID') && disk['Volume UUID'] == @disk[:uuid].upcase }[0]
       run_command!('diskutil mount "' + diskinfo['Device Node'] + '"')
     end
     @_available = nil
@@ -80,7 +80,7 @@ module RemovableDiskModule
       part, *_, mountpoint = run_command!("df '#{@root}' | tail -n1", capture_output: true, silent: true).chomp.split(' ')
       return @_fsck_status = 2 unless /^\/dev\//.match?(part) && mountpoint != '/'
       # We get the device info.
-      device_info = run_command!("diskutil info #{part}", capture_output: true, silent: true).lines.map{|l| l.chomp}.reject(&:empty?).map{|l| l.split(':').map{|h| h.strip}}.reject{|arr| arr.length != 2}.to_h
+      device_info = run_command!("diskutil info #{part}", capture_output: true, silent: true).lines.map { |l| l.chomp }.reject(&:empty?).map { |l| l.split(':').map { |h| h.strip } }.reject { |arr| arr.length != 2 }.to_h
       return @_fsck_status = 2 unless /^\/dev\//.match?(device_info['Device Node']) && device_info['Mount Point'] != '/'
       fsck_cmd = "fsck_" + device_info['Type (Bundle)']
       return @_fsck_status = 3 unless run_command!("which #{fsck_cmd}", capture_output: false, silent: true)
@@ -96,7 +96,7 @@ module RemovableDiskModule
   end
 
   def fsck_status_handler highlight: false
-    if !defined?(@_fsck_status)
+    unless defined?(@_fsck_status)
       System.log.debug "Fsck has not yet been run on #{@name.colorize(@highlight_color)}.".colorize(highlight && @highlight_color)
       return
     end
@@ -118,6 +118,11 @@ module RemovableDiskModule
       exit 1
     when 6
       System.log.fatal "Error running fsck on #{@name.colorize(@highlight_color)}. The volume could not be re-mounted at #{@root.colorize(@highlight_color)}. Halting execution to prevent unintended consequences.".colorize(highlight && @highlight_color)
+      @_root_available = false
+      @_available = false
+      exit 1
+    else
+      System.log.fatal "Unknown fsck error encountered. Halting execution."
       @_root_available = false
       @_available = false
       exit 1

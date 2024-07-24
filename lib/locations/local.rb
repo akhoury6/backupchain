@@ -27,14 +27,16 @@ end
 
 class LocalFolder < LocalHost
   include FolderModule
-  def initialize *params
+
+  def initialize * params
     super **params.to_h
   end
 end
 
 class LocalRemovableDisk < LocalHost
   include RemovableDiskModule
-  def initialize *params
+
+  def initialize * params
     super **params.to_h
   end
 end

@@ -19,7 +19,7 @@ class Display
       out text
       return
     end
-    divider_color = {color: :cyan, background: :default}
+    divider_color = { color: :cyan, background: :default }
     if text.nil?
       text = "————————————————————————".colorize(divider_color)
     else
@@ -32,17 +32,9 @@ class Display
     return if verbose && !@verbose
     text.gsub!(/\e\[([;\d]+)?m/, '') if @suppress_color || @output_as_logs
     if @output_as_logs
-      text.each_line{ |line| puts Time.now().to_s + '  ' + (' ' * indent) + line }
+      text.each_line { |line| puts Time.now.to_s + '  ' + (' ' * indent) + line }
     else
-      text.each_line{ |line| puts (' ' * indent) + line }
+      text.each_line { |line| puts (' ' * indent) + line }
     end
   end
 end
-
-## Set Up Display
-# $display = Display.new(
-#   output_as_logs: ARGS.keys.include?('l') || ARGS.keys.include?('logging'),
-#   verbose: ARGS.keys.include?('v') || ARGS.keys.include?('verbose'),
-#   suppress_color: ARGS.keys.include?('no-color'),
-# )
-# exit
