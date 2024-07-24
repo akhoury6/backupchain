@@ -55,7 +55,7 @@ class RemoteHost < Location
 
   def find_sshconfig_host_entry host, also_search_hostname: false
     entries = get_sshconfig_host_entries
-    entries.select{|e| e["Host"].include?(host) || (also_search_hostname && e["Hostname"] == host)}.first || []
+    entries.select{|e| e["Host"].include?(host) || (also_search_hostname && e["Hostname"] == host)}.first || {}
   end
 
   def get_sshconfig_host_entries filename: nil
