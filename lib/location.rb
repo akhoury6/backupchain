@@ -81,9 +81,9 @@ class Location
   end
 
   def analyze! allow_automount: false
-    System.log.info "Analyzing #{@name}..."
+    System.log.info "Analyzing #{@name.colorize(mode: :bold)}..."
     self.available? force_check: true
-    System.log.info self.status_message
+    System.log.info self.status_message.lines.map { |line| "    " + line.chomp }.join("\n")
     if allow_automount && self.can_automount?
       System.log.info "Attempting to automount disk on #{@name}..."
       success = self.automount!
