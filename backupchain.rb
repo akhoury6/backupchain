@@ -178,19 +178,19 @@ end
 ###############
 # Backup Process
 ###############
-if `which cowsay` != ""
-  System.log.info `cowsay -f stegosaurus 'Time for a backup!'`.lines.each_with_index.map { |line, index|
-    if index <= 2
-      line.colorize(:red)
-    elsif index <= 6
-      (line[0..4].colorize(:red) + line[5..-1].colorize(:cyan))
-    else
-      line.colorize(:cyan)
-    end
-  }.join.colorize(mode: :bold)
-else
-  System.log.info "eJyNlM1qwzAMgO95hVzUXrZDbbdsFEZLX2GX3hLqdGODUcJKobdUzz7JP/lx\n7CyyiS3L+ixZJnmx2b1sdq9vNeiIQJYX6zpvN+3h+FN/wffvDc7wcf683K8L\nOASbQEQkJJVA0i5tjV9KpB/Dg8rZDAUVU+QTLMNIgDHTFEkJkPue5wc/2NUR\njGjTsAbMJuoCkJqg4LiTJUt42lp04UiBAyQKXkp4N+23RMSSriAilVRkVHFE\nV0RiaK1Sl8y2KIHPfHdpg0u2J14na786HeDZXMDKBqpHGTTt7EGQdCKVsHUM\nz30MKWoyF4+Sw7NVVKVHt0JM1tUJlU9r56m0eRYnrwrQHiUFJ/4PqxeFiqno\nAucEiMx9FtFUoEmo5hUzzzX7R/gDbknaPA==\n".decompress
-end
+# if `which cowsay` != ""
+#   System.log.info `cowsay -f stegosaurus 'Time for a backup!'`.lines.each_with_index.map { |line, index|
+#     if index <= 2
+#       line.colorize(:red)
+#     elsif index <= 6
+#       (line[0..4].colorize(:red) + line[5..-1].colorize(:cyan))
+#     else
+#       line.colorize(:cyan)
+#     end
+#   }.join.colorize(mode: :bold)
+# else
+#   System.log.info "eJyNlM1qwzAMgO95hVzUXrZDbbdsFEZLX2GX3hLqdGODUcJKobdUzz7JP/lx\n7CyyiS3L+ixZJnmx2b1sdq9vNeiIQJYX6zpvN+3h+FN/wffvDc7wcf683K8L\nOASbQEQkJJVA0i5tjV9KpB/Dg8rZDAUVU+QTLMNIgDHTFEkJkPue5wc/2NUR\njGjTsAbMJuoCkJqg4LiTJUt42lp04UiBAyQKXkp4N+23RMSSriAilVRkVHFE\nV0RiaK1Sl8y2KIHPfHdpg0u2J14na786HeDZXMDKBqpHGTTt7EGQdCKVsHUM\nz30MKWoyF4+Sw7NVVKVHt0JM1tUJlU9r56m0eRYnrwrQHiUFJ/4PqxeFiqno\nAucEiMx9FtFUoEmo5hUzzzX7R/gDbknaPA==\n".decompress
+# end
 
 # Parse Locations
 locations = config[:locations].map do |name, location_config|
@@ -203,12 +203,16 @@ trees = config[:execution_tree].map do |root_node|
 end
 
 # Check Availability
+System.log.info "\n"
 System.log.info 'Analyzing Backup Targets'.colorize(color: :cyan, mode: :bold)
+threads = []
 locations.each do |name, loc|
-  loc.analyze!
+  threads << Thread.new { loc.analyze! }
 end
+threads.each { |thr| thr.join }
 
 # Show Backup Plan
+System.log.info "\n"
 System.log.info 'Confirm Backup Plan'.colorize(color: :cyan, mode: :bold)
 trees.each_with_index do |root, index|
   root.show_full_tree show_legend: (index == 0)
@@ -223,6 +227,7 @@ unless OPTS[:yes]
 end
 
 # Run Backup
+System.log.info "\n"
 System.log.info 'Running Backups'.colorize(color: :cyan, mode: :bold)
 
 # Nodes in execution goups
