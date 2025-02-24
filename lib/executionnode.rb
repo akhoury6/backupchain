@@ -114,9 +114,10 @@ class ExecutionNode
         failover: @outgoing[:failovers].include?(t),
         branch_char: (
           (t == @outgoing[:targets][-1] && @outgoing[:failovers].empty?) ||
-            (t == @outgoing[:failovers][-1]) ? chars[:l] : chars[:m]).colorize(
+            (t == @outgoing[:failovers][-1]) ? chars[:l] : chars[:m]
+        ).colorize(
           if @outgoing[:failovers].include?(t)
-            unavailable || targets_available ? :gray : :red
+            unavailable ? :gray : :red
           else
             unavailable ? :gray : :blue
           end
